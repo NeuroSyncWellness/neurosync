@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { ArrowLeft, ArrowRight, CalendarDays, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Loader2, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/lib/supabase/client";
 
 type ChildDetails = { name: string; dateOfBirth: string; age: string };
 
@@ -31,8 +33,9 @@ export default function ChildLoginPage() {
   const router = useRouter();
   const [form, setForm] = useState<ChildDetails>({ name: "", dateOfBirth: "", age: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     if (!form.name.trim() || !form.dateOfBirth || !form.age.trim()) {
@@ -44,13 +47,77 @@ export default function ChildLoginPage() {
       setError("Enter a valid age.");
       return;
     }
-    localStorage.setItem("neurosync-child-session", JSON.stringify(form));
-    router.push("/dashboard");
+
+    setLoading(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) {
+        setError("Your session has expired. Please sign in again.");
+        router.replace("/login");
+        return;
+      }
+
+      const { error: insertError } = await supabase.from("children").insert({
+        parent_id: user.id,
+        name: form.name.trim(),
+        date_of_birth: form.dateOfBirth,
+        age,
+      });
+      if (insertError) throw insertError;
+
+      localStorage.setItem("neurosync-child-session", JSON.stringify(form));
+      router.push("/onboarding/diagnosis");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to save the child profile.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  return <main className="min-h-screen bg-muted/30 px-4 py-6 sm:px-6 sm:py-10"><div className="mx-auto max-w-3xl">
-    <header className="flex items-center justify-between gap-4"><Button variant="ghost" asChild><Link href="/login"><ArrowLeft /> Back to login</Link></Button><Badge variant="secondary">Child details · 2 of 2</Badge></header>
-    <section className="mx-auto mt-10 max-w-2xl text-center"><Badge className="border-primary/20 bg-primary/10 text-primary">FAMILY SETUP</Badge><h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Child details</h1><p className="mt-4 text-lg leading-8 text-muted-foreground">Add the child profile used to personalize the dashboard.</p></section>
-    <Card className="mx-auto mt-8 max-w-2xl"><CardHeader><CardTitle className="flex items-center gap-2"><UserRound className="text-primary" /> Child information</CardTitle><CardDescription>These details help organize the child&apos;s family space.</CardDescription></CardHeader><CardContent><form onSubmit={submit} className="space-y-5"><div className="space-y-2"><Label htmlFor="child-name">Child name</Label><Input id="child-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Enter the child’s full name" autoComplete="name" /></div><div className="grid gap-5 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="child-dob">Date of birth</Label><div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input id="child-dob" type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChange={(event) => setForm({ ...form, dateOfBirth: event.target.value, age: calculateAge(event.target.value) })} className="pl-9" /></div></div><div className="space-y-2"><Label htmlFor="child-age">Age</Label><Input id="child-age" type="number" min="0" max="120" value={form.age} placeholder="Calculated from date of birth" readOnly className="bg-muted" /></div></div>{error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}<Button type="submit" className="w-full" size="lg">Login to dashboard <ArrowRight /></Button></form></CardContent></Card>
-  </div></main>;
+  return (
+    <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-3xl">
+        <header className="flex items-center justify-between gap-4">
+          <Button variant="ghost" render={<Link href="/login" />} nativeButton={false}><ArrowLeft /> Back to login</Button>
+          <Image src="/ns_logo_LIGHT.png" alt="NeuroSync" width={80} height={80} className="size-12 rounded-lg object-contain mix-blend-multiply dark:hidden" priority />
+          <Image src="/NeuroSync_logo.png" alt="NeuroSync" width={80} height={80} className="hidden size-12 rounded-lg object-contain mix-blend-screen dark:block" priority />
+          <Badge variant="secondary">Step 2 of 2</Badge>
+        </header>
+        <div className="mx-auto mt-12 max-w-xl">
+          <section className="text-center">
+            <Badge variant="secondary">FAMILY SETUP</Badge>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight">Tell us about your child</h1>
+            <p className="mx-auto mt-3 text-muted-foreground">These details help personalize the dashboard.</p>
+          </section>
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><UserRound className="size-5 text-primary" /> Child profile</CardTitle>
+              <CardDescription>This information is securely associated with your parent account.</CardDescription>
+            </CardHeader>
+            <CardContent className="bg-card">
+              <form onSubmit={submit} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="child-name">Child name</Label>
+                  <Input id="child-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Enter the child’s full name" autoComplete="name" />
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="child-dob">Date of birth</Label>
+                    <div className="relative"><CalendarDays className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input id="child-dob" type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChange={(event) => setForm({ ...form, dateOfBirth: event.target.value, age: calculateAge(event.target.value) })} className="pl-9" /></div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="child-age">Age</Label>
+                    <Input id="child-age" type="number" min="0" max="120" value={form.age} placeholder="Calculated automatically" readOnly className="bg-muted" />
+                  </div>
+                </div>
+                {error && <p role="alert" className="rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p>}
+                <Button type="submit" className="w-full" size="lg" disabled={loading}>{loading ? <><Loader2 className="animate-spin" /> Saving child profile…</> : <>Continue to dashboard <ArrowRight /></>}</Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </main>
+  );
 }
