@@ -3,10 +3,9 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Check, CircleHelp } from "lucide-react";
+import { Check, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { CHILD_PROFILE_STORAGE_KEY, saveChildProfile, type DiagnosisStatus } from "@/lib/child-profile";
 
 export default function DiagnosisStatusPage() {
@@ -23,11 +22,11 @@ export default function DiagnosisStatusPage() {
     return () => cancelAnimationFrame(frame);
   }, [router]);
 
-  function continueFlow() {
-    if (!status) return;
-    if (status === "undiagnosed") {
+  function selectStatus(nextStatus: DiagnosisStatus) {
+    setStatus(nextStatus);
+    if (nextStatus === "undiagnosed") {
       saveChildProfile({
-        diagnosisStatus: status,
+        diagnosisStatus: nextStatus,
         disorders: [],
         recommendedTheme: "universal",
         activeTheme: "universal",
@@ -45,36 +44,31 @@ export default function DiagnosisStatusPage() {
   return (
     <OnboardingShell step="Step 1 of 3">
       <section className="text-center">
-        <Badge variant="secondary">CHILD PROFILE</Badge>
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Is your child diagnosed with any of the following conditions?</h1>
-        <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Choose the option that best describes your child today. You can update this information later.</p>
       </section>
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {([
-          ["diagnosed", "Diagnosed", "Choose the conditions and severity levels that apply."],
-          ["undiagnosed", "Undiagnosed", "Use a universal starting point while your questionnaire is prepared."],
-        ] as const).map(([value, title, description]) => (
+          ["diagnosed", "Diagnosed"],
+          ["undiagnosed", "Undiagnosed"],
+        ] as const).map(([value, title]) => (
           <button
             key={value}
             type="button"
             aria-pressed={status === value}
-            onClick={() => setStatus(value)}
+            onClick={() => selectStatus(value)}
             className={`rounded-xl text-left ring-1 transition-all hover:-translate-y-0.5 hover:ring-primary ${status === value ? "bg-primary/15 ring-2 ring-primary" : "bg-card ring-foreground/10"}`}
           >
             <Card className="h-full bg-transparent ring-0">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-3">
                   {title}
-                  {status === value ? <Check className="text-primary" aria-hidden="true" /> : <CircleHelp className="text-muted-foreground" aria-hidden="true" />}
+                  {status === value ? <Check className="text-primary" aria-hidden="true" /> : <Circle className="text-muted-foreground" aria-hidden="true" />}
                 </CardTitle>
-                <CardDescription>{description}</CardDescription>
               </CardHeader>
-              <CardContent><span className="text-sm font-medium text-primary">Select {title.toLowerCase()}</span></CardContent>
             </Card>
           </button>
         ))}
       </div>
-      <Button className="mt-6 w-full" size="lg" disabled={!status} onClick={continueFlow}>Continue <ArrowRight data-icon="inline-end" /></Button>
     </OnboardingShell>
   );
 }

@@ -23,7 +23,9 @@ export default function DashboardSettingsPage() {
     const [palette, setPalette] = useState(() => {
       if (typeof window === "undefined") return "purple";
 
-      return localStorage.getItem("neurosync-palette") || "purple";
+      return localStorage.getItem("neurosync-palette") === "plum"
+        ? "plum-light"
+        : localStorage.getItem("neurosync-palette") || "purple";
     });
   const [volume, setVolume] = useState(35);
   const [notifications, setNotifications] = useState(true);
@@ -36,13 +38,15 @@ export default function DashboardSettingsPage() {
     const useDark = storedTheme === "dark";
 
     const storedPalette =
-      localStorage.getItem("neurosync-palette") || "purple";
+      localStorage.getItem("neurosync-palette") === "plum"
+        ? "plum-light"
+        : localStorage.getItem("neurosync-palette") || "purple";
 
     document.documentElement.classList.toggle("dark", useDark);
 
     let theme = "parent-purple-light";
 
-    if (storedPalette === "plum") {
+    if (storedPalette === "plum-light") {
       theme = useDark
         ? "parent-plum-dark"
         : "parent-plum-light";
@@ -75,14 +79,11 @@ export default function DashboardSettingsPage() {
     function selectPalette(nextPalette: string) {
     setPalette(nextPalette);
 
-    localStorage.setItem(
-      "neurosync-palette",
-      nextPalette
-    );
+    localStorage.setItem("neurosync-palette", nextPalette);
 
     let theme = "parent-purple-light";
 
-    if (nextPalette === "plum") {
+    if (nextPalette === "plum-light") {
       theme = dark
         ? "parent-plum-dark"
         : "parent-plum-light";
@@ -116,11 +117,13 @@ export default function DashboardSettingsPage() {
     );
 
     const storedPalette =
-      localStorage.getItem("neurosync-palette") || "purple";
+      localStorage.getItem("neurosync-palette") === "plum"
+        ? "plum-light"
+        : localStorage.getItem("neurosync-palette") || "purple";
 
     let theme = "parent-purple-light";
 
-    if (storedPalette === "plum") {
+    if (storedPalette === "plum-light") {
       theme = next
         ? "parent-plum-dark"
         : "parent-plum-light";
@@ -219,10 +222,10 @@ export default function DashboardSettingsPage() {
                 </Button>
 
                 <Button
-                  variant={palette === "plum" ? "default" : "outline"}
-                  onClick={() => selectPalette("plum")}
+                  variant={palette === "plum-light" ? "default" : "outline"}
+                  onClick={() => selectPalette("plum-light")}
                 >
-                  Plum
+                  Plum Light
                 </Button>
 
                 <Button
@@ -242,18 +245,12 @@ export default function DashboardSettingsPage() {
               </span>
             </Button>
 
-            <div className="rounded-xl bg-muted p-4">
-              <div className="mb-3">
-                <p className="font-semibold">Child Mode theme</p>
-                <p className="text-sm text-muted-foreground">Change the active theme without changing diagnosis information.</p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-4">
-                {(["universal", "ocd", "adhd", "asd", "ocd_adhd", "ocd_asd", "adhd_asd"] as ChildTheme[]).map((theme) => (
-                  <Button key={theme} variant={childTheme === theme ? "default" : "outline"} onClick={() => selectChildTheme(theme)}>
-                    {theme.replace("_", " + ").toUpperCase()}
-                  </Button>
-                ))}
-              </div>
+            <div className="grid gap-2 sm:grid-cols-4">
+              {(["universal", "ocd", "adhd", "asd", "ocd_adhd", "ocd_asd", "adhd_asd"] as ChildTheme[]).map((theme) => (
+                <Button key={theme} variant={childTheme === theme ? "default" : "outline"} onClick={() => selectChildTheme(theme)}>
+                  {theme.replace("_", " + ").toUpperCase()}
+                </Button>
+              ))}
             </div>
 
             <Button variant="destructive" className="h-auto justify-start p-4" onClick={logout}>

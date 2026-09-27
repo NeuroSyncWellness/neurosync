@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { QuestionnairePlaceholder } from "@/components/questionnaire-placeholder";
+import QuestionnairePlaceholder from "@/components/questionnaire-placeholder";
 import { readChildProfile, saveChildProfile, type ChildProfile } from "@/lib/child-profile";
 
 export default function QuestionnairePage() {
@@ -29,6 +29,7 @@ export default function QuestionnairePage() {
     if (!profile) return;
     const completed = { ...profile, onboardingCompleted: true };
     saveChildProfile(completed);
+    localStorage.setItem("neurosync-child-lock", "false");
     setProfile(completed);
     router.push("/dashboard");
   }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { ArrowLeft, ArrowRight, KeyRound, Lock, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, KeyRound, Lock, Mail, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,8 @@ import { supabase } from "@/lib/supabase/client";
 type ParentDetails = {
   firstName: string;
   lastName: string;
+  countryCode: string;
+  phone: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -33,7 +35,7 @@ const fields: Array<{ key: ParentTextField; label: string; placeholder: string; 
 export default function LoginPage() {
   const router = useRouter();
   const [authMode, setAuthMode] = useState<"sign-in" | "sign-up">("sign-up");
-  const [form, setForm] = useState<ParentDetails>({ firstName: "", lastName: "", email: "", password: "", confirmPassword: "", childLock: true, childLockPin: "" });
+  const [form, setForm] = useState<ParentDetails>({ firstName: "", lastName: "", countryCode: "+91", phone: "", email: "", password: "", confirmPassword: "", childLock: true, childLockPin: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -46,6 +48,7 @@ export default function LoginPage() {
     localStorage.setItem("neurosync-parent-session", JSON.stringify({
       firstName: typeof metadata.firstName === "string" ? metadata.firstName : form.firstName.trim(),
       lastName: typeof metadata.lastName === "string" ? metadata.lastName : form.lastName.trim(),
+      phone: typeof metadata.phone === "string" ? metadata.phone : `${form.countryCode}${form.phone.replace(/\D/g, "")}`,
       email: user.email ?? form.email.trim(),
       childLock: authMode === "sign-up" ? form.childLock : metadata.childLock === true,
       childLockPin: authMode === "sign-up" ? form.childLockPin : existingChildLockPin,
@@ -98,6 +101,10 @@ export default function LoginPage() {
       setError("Enter your first name, last name, and password details.");
       return;
     }
+    if (authMode === "sign-up" && form.phone.replace(/\D/g, "").length < 7) {
+      setError("Enter a valid contact number.");
+      return;
+    }
     if (form.password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -120,6 +127,7 @@ export default function LoginPage() {
             data: {
               firstName: form.firstName.trim(),
               lastName: form.lastName.trim(),
+              phone: `${form.countryCode}${form.phone.replace(/\D/g, "")}`,
               childLock: form.childLock,
             },
           },
@@ -185,6 +193,21 @@ export default function LoginPage() {
                       </div>
                     </div>
                   ))}
+                </div>}
+                {authMode === "sign-up" && <div className="space-y-2">
+                  <Label htmlFor="parent-phone">Contact number</Label>
+                  <div className="flex gap-2">
+                    <select aria-label="Country code" value={form.countryCode} onChange={(event) => setForm({ ...form, countryCode: event.target.value })} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+                      <option value="+91">+91</option>
+                      <option value="+1">+1</option>
+                      <option value="+44">+44</option>
+                      <option value="+61">+61</option>
+                    </select>
+                    <div className="relative flex-1">
+                      <Phone className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                      <Input id="parent-phone" type="tel" inputMode="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value.replace(/[^\d\s-]/g, "") })} placeholder="Contact number" className="pl-9" autoComplete="tel" />
+                    </div>
+                  </div>
                 </div>}
                 <div className="grid gap-5 bg-muted/40 p-4 sm:grid-cols-2">
                   <div className={`space-y-2 ${authMode === "sign-in" ? "sm:col-span-2" : ""}`}>

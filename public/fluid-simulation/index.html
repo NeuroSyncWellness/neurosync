@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="description" content="A calming fluid play experience powered by WebGL." />
+    <title>Fluid Play</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+      }
+
+      body {
+        position: fixed;
+        inset: 0;
+        touch-action: none;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+
+      .dg.ac,
+      .promo {
+        display: none !important;
+      }
+    </style>
+    <script src="./dat.gui.min.js"></script>
+    <script>window.ga = function () {};</script>
+  </head>
+  <body>
+    <canvas></canvas>
+    <div class="promo" aria-hidden="true">
+      <button class="promo-close" type="button" tabindex="-1"></button>
+      <a id="apple_link" tabindex="-1"></a>
+      <a id="google_link" tabindex="-1"></a>
+    </div>
+    <script src="./script.js"></script>
+  </body>
+</html>

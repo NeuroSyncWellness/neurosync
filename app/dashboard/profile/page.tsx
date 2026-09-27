@@ -3,10 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Mail, Phone, UserCircle } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Save, UserCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase/client";
 
 type ProfileDetails = {
@@ -22,6 +24,8 @@ export default function DashboardProfilePage() {
     phone: "Not provided",
   });
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -60,6 +64,37 @@ export default function DashboardProfilePage() {
     void loadProfile();
   }, []);
 
+  async function saveProfile() {
+    setError("");
+    setSaving(true);
+    try {
+      const nameParts = details.name.trim().split(/\s+/).filter(Boolean);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ");
+      const { data, error: updateError } = await supabase.auth.updateUser({
+        email: details.email.trim(),
+        data: { firstName, lastName, phone: details.phone.trim() },
+      });
+      if (updateError) throw updateError;
+
+      const stored = localStorage.getItem("neurosync-parent-session");
+      const parent = stored ? JSON.parse(stored) as Record<string, unknown> : {};
+      localStorage.setItem("neurosync-parent-session", JSON.stringify({
+        ...parent,
+        firstName,
+        lastName,
+        email: data.user?.email || details.email.trim(),
+        phone: details.phone.trim(),
+      }));
+      setDetails((current) => ({ ...current, name: [firstName, lastName].filter(Boolean).join(" ") || "Not provided", email: data.user?.email || current.email }));
+      setEditing(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to save your profile.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-2xl">
@@ -77,22 +112,25 @@ export default function DashboardProfilePage() {
             <CardTitle className="flex items-center gap-2">
               <UserCircle className="size-5 text-primary" /> User information
             </CardTitle>
-            <CardDescription>Your account details from Supabase.</CardDescription>
+            <CardDescription>Keep your family account details up to date.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             {error && <p role="alert" className="rounded-xl bg-destructive/15 px-3 py-2 text-sm text-destructive">{error}</p>}
-            <div className="flex items-center gap-3 rounded-xl bg-muted p-4">
-              <UserCircle className="size-5 text-primary" />
-              <div><p className="text-xs text-muted-foreground">User name</p><p className="font-semibold">{details.name}</p></div>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl bg-muted p-4">
-              <Mail className="size-5 text-primary" />
-              <div><p className="text-xs text-muted-foreground">User email</p><p className="font-semibold">{details.email}</p></div>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl bg-muted p-4">
-              <Phone className="size-5 text-primary" />
-              <div><p className="text-xs text-muted-foreground">Contact number</p><p className="font-semibold">{details.phone}</p></div>
-            </div>
+            {editing ? (
+              <div className="grid gap-4">
+                <div className="grid gap-2"><Label htmlFor="profile-name">Name</Label><Input id="profile-name" value={details.name === "Not provided" ? "" : details.name} onChange={(event) => setDetails({ ...details, name: event.target.value })} /></div>
+                <div className="grid gap-2"><Label htmlFor="profile-email">Email</Label><Input id="profile-email" type="email" value={details.email === "Not provided" ? "" : details.email} onChange={(event) => setDetails({ ...details, email: event.target.value })} /></div>
+                <div className="grid gap-2"><Label htmlFor="profile-phone">Contact number</Label><Input id="profile-phone" type="tel" value={details.phone === "Not provided" ? "" : details.phone} onChange={(event) => setDetails({ ...details, phone: event.target.value })} /></div>
+                <div className="flex gap-2"><Button onClick={saveProfile} disabled={saving}><Save data-icon="inline-start" />{saving ? "Saving…" : "Save changes"}</Button><Button variant="outline" onClick={() => setEditing(false)}>Cancel</Button></div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 rounded-xl bg-muted p-4"><UserCircle className="size-5 text-primary" /><div><p className="text-xs text-muted-foreground">Name</p><p className="font-semibold">{details.name}</p></div></div>
+                <div className="flex items-center gap-3 rounded-xl bg-muted p-4"><Mail className="size-5 text-primary" /><div><p className="text-xs text-muted-foreground">Email</p><p className="font-semibold">{details.email}</p></div></div>
+                <div className="flex items-center gap-3 rounded-xl bg-muted p-4"><Phone className="size-5 text-primary" /><div><p className="text-xs text-muted-foreground">Contact number</p><p className="font-semibold">{details.phone}</p></div></div>
+                <Button variant="outline" onClick={() => setEditing(true)}>Edit profile</Button>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

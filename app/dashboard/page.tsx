@@ -20,11 +20,14 @@ import {
   Unlock,
   UserCircle,
   WandSparkles,
+  Waves,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FluidPlay } from "@/components/fluid-play";
+import { SensoryRoom } from "@/components/sensory-room";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -32,7 +35,6 @@ import {
   applyFamilyTheme,
   CHILD_ACTIVE_THEME_STORAGE_KEY,
   readChildProfile,
-  saveChildProfile,
   type ChildTheme,
 } from "@/lib/child-profile";
 
@@ -58,6 +60,7 @@ export default function Dashboard() {
   const [profilePromptDismissed, setProfilePromptDismissed] = useState(false);
   const [actionNotice, setActionNotice] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [fluidPlayOpen, setFluidPlayOpen] = useState(false);
   const [childTheme, setChildTheme] = useState<ChildTheme>("universal");
   const notifications = [
     { title: "Profile questions", message: profileComplete ? "All profile questions are complete." : "You have unanswered profile questions. Open your questionnaire to continue.", icon: WandSparkles },
@@ -92,6 +95,7 @@ export default function Dashboard() {
     }
     const useDark = storedTheme ? storedTheme === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
     document.documentElement.classList.toggle("dark", useDark);
+    applyFamilyTheme(useDark, localStorage.getItem("neurosync-palette") || "purple");
     const frame = requestAnimationFrame(() => {
       setDark(useDark);
       setLocked(localStorage.getItem("neurosync-child-lock") === "true");
@@ -136,24 +140,9 @@ export default function Dashboard() {
   const guardianName = [guardian.firstName, guardian.lastName].filter(Boolean).join(" ") || "Parents/Guardian";
   const childName = profile.childName || "your child";
   const progress = 25;
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? "morning" : hour < 16 ? "afternoon" : "evening";
   
-  function toggleTheme() {
-    const next = !dark;
-
-    setDark(next);
-
-    localStorage.setItem(
-      "neurosync-theme",
-      next ? "dark" : "light"
-    );
-
-    document.documentElement.classList.toggle("dark", next);
-    if (mode === "child") {
-      applyChildTheme(childTheme, next);
-    } else {
-      applyFamilyTheme(next, localStorage.getItem("neurosync-palette") || "purple");
-    }
-  }
   function toggleLock() {
     if (locked) {
       setUnlockPrompt(true);
@@ -180,14 +169,19 @@ export default function Dashboard() {
     setPin("");
     localStorage.setItem("neurosync-child-lock", "false");
   }
-  function changeChildTheme(theme: ChildTheme) {
-    setChildTheme(theme);
-    const profile = readChildProfile();
-    if (profile) saveChildProfile({ ...profile, activeTheme: theme });
-    if (mode === "child") applyChildTheme(theme, dark);
-    setActionNotice(`Child theme changed to ${theme.replace("_", " + ").toUpperCase()}.`);
+  function toggleTheme() {
+    const next = !dark;
+    setDark(next);
+    localStorage.setItem("neurosync-theme", next ? "dark" : "light");
+    document.documentElement.classList.toggle("dark", next);
+    if (mode === "child") {
+      applyChildTheme(childTheme, next);
+    } else {
+      applyFamilyTheme(next, localStorage.getItem("neurosync-palette") || "purple");
+    }
   }
   if (!authChecked) return <main className="grid min-h-screen place-items-center bg-background text-sm text-muted-foreground">Loading your family space…</main>;
+  if (mode === "child" && fluidPlayOpen) return <FluidPlay onBack={() => setFluidPlayOpen(false)} />;
 
   return (
     <main className="min-h-screen bg-background">
@@ -208,7 +202,7 @@ export default function Dashboard() {
               </Card>}
             </div>
             <Button size="icon" variant="outline" onClick={() => { toggleLock(); setActionNotice(locked ? "Enter your PIN to unlock family mode." : "Child lock enabled."); }} aria-label="Toggle child lock">{locked ? <Lock /> : <Unlock />}</Button>
-            <Button size="icon" variant="outline" disabled={mode === "child"} onClick={() => { toggleTheme(); setActionNotice("Theme updated."); }} aria-label="Toggle theme">{dark ? <Sun /> : <Moon />}</Button>
+            <Button size="icon" variant="outline" onClick={toggleTheme} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}>{dark ? <Sun /> : <Moon />}</Button>
           </div>
         </div>
       </header>
@@ -219,7 +213,6 @@ export default function Dashboard() {
             <p className="text-xs font-semibold tracking-widest text-muted-foreground">
               {mode === "family" ? "FAMILY MODE" : "CHILD MODE"}
             </p>
-            <p className="mt-1 font-semibold">{childName}&apos;s space</p>
           </div>
           <nav className="grid grid-cols-2 gap-1 lg:grid-cols-1">
             {(mode === "child"
@@ -227,6 +220,7 @@ export default function Dashboard() {
                 ["Basic & Daily 3-D Push to Talk Communication", MessageCircle, "chat"],
                 ["Gamified Neuro-Routine & Scheduling", CalendarDays, "schedule"],
                 ["Puzzles", WandSparkles, "puzzles"],
+                ["Sensory Room", Waves, "sensory-room"],
               ]
               : [
                 ["Adaptive Sensory Audio Library", Music2, "library"],
@@ -243,8 +237,12 @@ export default function Dashboard() {
                 key={label as string}
                 variant={activePanel === panel ? "secondary" : "ghost"}
                 className="h-auto min-h-10 justify-start whitespace-normal text-left leading-5"
-                disabled={mode === "child"}
+                disabled={mode === "child" && panel !== "sensory-room"}
                 onClick={() => {
+                  if (panel === "sensory-room") {
+                    setActivePanel("sensory-room");
+                    return;
+                  }
                   if (panel === "settings") {
                     router.push("/dashboard/settings");
                     return;
@@ -265,13 +263,14 @@ export default function Dashboard() {
         </aside>
 
         <div className="min-w-0 space-y-6">
-          <section className="flex flex-wrap items-end justify-between gap-3"><div><Badge variant="secondary">{mode === "family" ? "CAREGIVER DASHBOARD" : "CHILD SPACE"}</Badge><h1 className="mt-2 text-3xl font-bold italic tracking-tight">{mode === "family" ? `Good afternoon, ${guardianName}.` : `Hi ${childName}!`}</h1><p className="mt-1 text-muted-foreground">{mode === "family" ? `Everything you need for ${childName}, in one calm place.` : "Pick an activity and earn your next reward."}</p></div></section>
+          <section className="flex flex-wrap items-end justify-between gap-3"><div><Badge variant="secondary">{mode === "family" ? "CAREGIVER DASHBOARD" : "CHILD SPACE"}</Badge><h1 className="mt-2 text-3xl font-bold italic tracking-tight">{mode === "family" ? `Good ${timeGreeting}, ${guardianName}.` : `Hi ${childName}!`}</h1><p className="mt-1 text-muted-foreground">{mode === "family" ? `Everything you need for ${childName}, in one calm place.` : "Pick an activity and earn your next reward."}</p></div></section>
 
           {mode === "family" ? (
             <section>
               <Card className="bg-checkin-surface"><CardHeader><Badge variant="secondary" className="w-fit">DAILY CHECK-IN</Badge><CardTitle className="mt-2 text-2xl">How is {childName} feeling?</CardTitle><CardDescription>A quick check-in helps you choose the right support.</CardDescription></CardHeader><CardContent><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{["Restless", "Low focus", "Overstimulated", "Feeling good"].map((item) => <Button key={item} variant={mood === item ? "default" : "outline"} onClick={() => setMood(item)}>{item}</Button>)}</div>{mood && <p className="mt-4 text-sm text-muted-foreground">Check-in saved: {mood}.</p>}</CardContent></Card>
-              <Card className="mt-6"><CardHeader><CardTitle className="text-lg">Child Mode theme</CardTitle><CardDescription>Your recommended theme is the starting point. You can change the active theme without changing the profile.</CardDescription></CardHeader><CardContent><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{(["universal", "ocd", "adhd", "asd", "ocd_adhd", "ocd_asd", "adhd_asd"] as ChildTheme[]).map((theme) => <Button key={theme} variant={childTheme === theme ? "default" : "outline"} onClick={() => changeChildTheme(theme)}>{theme.replace("_", " + ").toUpperCase()}</Button>)}</div></CardContent></Card>
             </section>
+          ) : activePanel === "sensory-room" ? (
+            <SensoryRoom onPlayFluid={() => setFluidPlayOpen(true)} />
           ) : (
             <ChildPanel childName={childName} progress={progress} />
           )}
@@ -279,7 +278,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {unlockPrompt && <div className="fixed inset-0 z-20 grid place-items-center bg-black/50 p-4"><Card className="w-full max-w-sm"><CardHeader><CardTitle className="flex items-center gap-2"><Lock className="text-warm" /> Parent unlock</CardTitle><CardDescription>Enter the child lock PIN saved for {guardianName}.</CardDescription></CardHeader><CardContent><Input value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" maxLength={4} placeholder="4-digit PIN" /><div className="mt-4 flex gap-2"><Button className="flex-1" variant="outline" onClick={() => setUnlockPrompt(false)}>Cancel</Button><Button className="flex-1" onClick={unlock}>Unlock</Button></div></CardContent></Card></div>}
+      {unlockPrompt && <div className="fixed inset-0 z-20 grid place-items-center bg-black/50 p-4"><Card className="w-full max-w-sm"><CardHeader><CardTitle className="flex items-center gap-2"><Lock className="text-warm" /> Parent unlock</CardTitle><CardDescription>Enter Your Child Lock PIN </CardDescription></CardHeader><CardContent><Input value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" maxLength={4} placeholder="4-digit PIN" /><div className="mt-4 flex gap-2"><Button className="flex-1" variant="outline" onClick={() => setUnlockPrompt(false)}>Cancel</Button><Button className="flex-1" onClick={unlock}>Unlock</Button></div></CardContent></Card></div>}
       {!profileComplete && !profilePromptDismissed && <div className="pointer-events-none fixed right-4 top-20 z-30 w-[min(24rem,calc(100vw-2rem))]"><Card className="pointer-events-auto shadow-xl"><CardContent className="flex flex-col items-start gap-4 p-4"><div className="flex w-full items-start gap-3"><WandSparkles className="mt-0.5 size-5 shrink-0 text-primary" /><div className="min-w-0 flex-1"><CardTitle className="text-base">Complete your profile</CardTitle><CardDescription className="mt-1">Answer a few questions to personalise your family space.</CardDescription></div><Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Dismiss profile reminder" onClick={() => setProfilePromptDismissed(true)}><X /></Button></div><Button className="w-full" render={<Link href="/profile" />} nativeButton={false}>Go to profile <ChevronRight /></Button></CardContent></Card></div>}
       {actionNotice && <div className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg" role="status">{actionNotice}<Button size="icon" variant="ghost" className="ml-2 size-6 text-primary-foreground hover:bg-primary-foreground/10" aria-label="Dismiss message" onClick={() => setActionNotice("")}><X /></Button></div>}
     </main>

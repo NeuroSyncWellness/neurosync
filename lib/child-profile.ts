@@ -14,12 +14,28 @@ export type ChildTheme =
   | "ocd_asd"
   | "adhd_asd";
 
+export type FluidPlaySettings = {
+  quality: number;
+  simulationResolution: number;
+  densityDiffusion: number;
+  velocityDiffusion: number;
+  pressure: number;
+  vorticity: number;
+  splatRadius: number;
+  shading: boolean;
+  bloom: boolean;
+  sunrays: boolean;
+  colorful: boolean;
+  moving: boolean;
+};
+
 export type ChildProfile = {
   diagnosisStatus: DiagnosisStatus;
   disorders: Array<{ id: DisorderId; severity: Severity }>;
   recommendedTheme: ChildTheme;
   activeTheme: ChildTheme;
   onboardingCompleted: boolean;
+  fluidPlaySettings?: FluidPlaySettings;
 };
 
 const disorderOrder: DisorderId[] = ["ocd", "adhd", "asd"];
@@ -29,7 +45,6 @@ export function getChildTheme(
   disorders: Array<{ id: DisorderId; severity: Severity }>,
 ): ChildTheme {
   if (diagnosisStatus === "undiagnosed" || disorders.length === 3) return "universal";
-  if (disorders.length === 1) return disorders[0].id;
 
   const meaningful = disorders
     .filter((disorder) => disorder.severity > 1)
@@ -41,6 +56,16 @@ export function getChildTheme(
 
   return `${meaningful[0]}_${meaningful[1]}` as Extract<ChildTheme, `${DisorderId}_${DisorderId}`>;
 }
+
+const childThemePalettes = {
+  universal: ["parent-purple-light", "parent-purple-dark"],
+  ocd: ["parent-plum-light", "parent-plum-dark"],
+  adhd: ["adhd-sea-light", "adhd-sea-dark"],
+  asd: ["asd-sage-light", "asd-sage-dark"],
+  ocd_adhd: ["child-ocd-adhd-light", "child-ocd-adhd-dark"],
+  ocd_asd: ["child-ocd-asd-light", "child-ocd-asd-dark"],
+  adhd_asd: ["child-adhd-asd-light", "child-adhd-asd-dark"],
+} satisfies Record<ChildTheme, [string, string]>;
 
 export function getDisorderLabel(disorder: DisorderId) {
   return disorder.toUpperCase();
@@ -69,24 +94,15 @@ export function saveChildProfile(profile: ChildProfile) {
 }
 
 export function applyChildTheme(theme: ChildTheme, dark: boolean) {
-  const palette = {
-    universal: dark ? "parent-purple-dark" : "parent-purple-light",
-    ocd: dark ? "parent-plum-dark" : "parent-plum-light",
-    adhd: dark ? "adhd-sea-dark" : "adhd-sea-light",
-    asd: dark ? "asd-sage-dark" : "asd-sage-light",
-    ocd_adhd: dark ? "parent-plum-dark" : "parent-plum-light",
-    ocd_asd: dark ? "parent-plum-dark" : "parent-plum-light",
-    adhd_asd: dark ? "adhd-sea-dark" : "adhd-sea-light",
-  } satisfies Record<ChildTheme, string>;
-
-  document.documentElement.setAttribute("data-theme", palette[theme]);
+  document.documentElement.setAttribute("data-theme", childThemePalettes[theme][dark ? 1 : 0]);
   document.documentElement.setAttribute("data-child-theme", theme);
 }
 
 export function applyFamilyTheme(dark: boolean, palette: string) {
-  const theme = palette === "plum-contrast"
+  const normalizedPalette = palette === "plum" ? "plum-light" : palette;
+  const theme = normalizedPalette === "plum-contrast"
     ? "parent-plum-contrast"
-    : palette === "plum"
+    : normalizedPalette === "plum-light"
       ? dark ? "parent-plum-dark" : "parent-plum-light"
       : dark ? "parent-purple-dark" : "parent-purple-light";
   document.documentElement.setAttribute("data-theme", theme);
